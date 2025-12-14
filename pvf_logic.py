@@ -15,9 +15,10 @@ class AssetManager:
     def __init__(self, asset_dir="assets"):
         self.asset_dir = asset_dir
 
-    def get_asset(self, asset_description, failure_mode):
+    def get_asset(self, asset_description, failure_mode, asset_type="video"):
         """
         Retrieves an asset based on cascading failure logic.
+        asset_type: "video", "music"
 
         failure_mode maps to:
         0: Normal Test (Layer 1 Fail -> Layer 2 Success simulation)
@@ -29,7 +30,7 @@ class AssetManager:
         # "Must be hardcoded to FAIL"
         try:
             # Simulate API call
-            raise ConnectionError("External API Connection Failed (Simulated)")
+            raise ConnectionError(f"External API Connection Failed for {asset_type} (Simulated)")
         except Exception as e:
             logger.warning(f"Layer 1 Failed: {e}")
             pass # Continue to Layer 2
@@ -39,21 +40,20 @@ class AssetManager:
             # Simulate Success for Demo purposes even if file is missing
             # In a real scenario, this would check os.path.exists
             # For this demo, we pretend we found a file in 'assets' if mode is 0
-            asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
-            # real check: file_path = os.path.join(self.asset_dir, asset_filename)
-            # if os.path.exists(file_path): ...
+            ext = ".mp4" if asset_type == "video" else ".mp3"
+            asset_filename = f"{asset_description.replace(' ', '_').upper()}{ext}"
 
             # Simulated return for Demo Mode 0
             return {
                 "source": "local",
                 "path": os.path.join(self.asset_dir, asset_filename),
-                "type": "video",
+                "type": asset_type,
                 "layer_used": "Layer 2 (Local Asset)"
             }
 
         elif failure_mode == 1:
             # Simulate Layer 2 Failure (File not found)
-            logger.warning("Layer 2 Failed: File not found (Simulated or Real)")
+            logger.warning(f"Layer 2 Failed: Local {asset_type} file not found (Simulated or Real)")
             pass # Continue to Layer 3
 
         elif failure_mode == 2:
@@ -61,14 +61,28 @@ class AssetManager:
             pass
 
         # --- LAYER 3: PROCEDURAL BACKUP ---
-        # Generates simple data structure
-        return {
-            "source": "procedural",
-            "type": "solid_color",
-            "color": "#000000", # Default black
-            "text": "SYSTEM FALLBACK: " + asset_description,
-            "layer_used": "Layer 3 (Procedural Backup)"
-        }
+        if asset_type == "video":
+            return {
+                "source": "procedural",
+                "type": "crt_interface",
+                "overlay": "binary_text",
+                "color": "#000000", # Default black
+                "text": "SYSTEM FALLBACK: " + asset_description,
+                "layer_used": "Layer 3 (Procedural Backup - CRT)"
+            }
+        elif asset_type == "music":
+             return {
+                "source": "procedural",
+                "type": "sine_wave_drone",
+                "frequency": "50Hz",
+                "layer_used": "Layer 3 (Procedural Backup - Tension Soundscape)"
+             }
+        else:
+             return {
+                "source": "procedural",
+                "type": "unknown",
+                "layer_used": "Layer 3 (Generic Backup)"
+             }
 
 class JSONBuilder:
     """
@@ -149,10 +163,14 @@ class JSONBuilder:
             }
             timeline.append(segment_data)
 
+        # Get Background Music (Global for Project)
+        music_asset = self.asset_manager.get_asset("Background_Track", failure_mode, asset_type="music")
+
         blueprint = {
             "project_name": "PVF_Demo_Project",
             "style_preset": style_preset_name,
             "total_duration": sum(s["duration"] for s in timeline),
+            "audio_track": music_asset,
             "timeline": timeline
         }
 
@@ -166,6 +184,15 @@ def renderer_stub(blueprint):
     logs = []
     logs.append(f"Starting Render Simulation for: {blueprint['project_name']}")
     logs.append(f"Style Preset: {blueprint['style_preset']}")
+
+    # Log Audio Track
+    audio = blueprint.get("audio_track", {})
+    logs.append(f"Audio Track: {audio.get('type', 'Unknown')}")
+    logs.append(f"  > Source: {audio.get('source', 'Unknown')}")
+    logs.append(f"  > Layer Used: {audio.get('layer_used', 'Unknown')}")
+    if audio.get("source") == "procedural":
+        logs.append(f"  > Generator: {audio.get('type')} @ {audio.get('frequency', 'N/A')}")
+
     logs.append("-" * 40)
 
     for segment in blueprint["timeline"]:
