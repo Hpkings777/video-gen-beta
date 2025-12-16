@@ -15,35 +15,20 @@ class AssetManager:
     def __init__(self, asset_dir="assets"):
         self.asset_dir = asset_dir
 
-    def get_asset(self, asset_description, failure_mode):
+    def get_video_asset(self, asset_description, failure_mode):
         """
-        Retrieves an asset based on cascading failure logic.
-
-        failure_mode maps to:
-        0: Normal Test (Layer 1 Fail -> Layer 2 Success simulation)
-        1: Local Fallback Test (Layer 2 Fail -> Layer 3 Success)
-        2: Bhuchal Mode (Force Layer 3)
+        Retrieves a VIDEO asset based on cascading failure logic.
         """
-
         # --- LAYER 1: EXTERNAL API ---
-        # "Must be hardcoded to FAIL"
         try:
-            # Simulate API call
             raise ConnectionError("External API Connection Failed (Simulated)")
         except Exception as e:
             logger.warning(f"Layer 1 Failed: {e}")
-            pass # Continue to Layer 2
+            pass
 
         # --- LAYER 2: LOCAL ASSETS ---
         if failure_mode == 0:
-            # Simulate Success for Demo purposes even if file is missing
-            # In a real scenario, this would check os.path.exists
-            # For this demo, we pretend we found a file in 'assets' if mode is 0
             asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
-            # real check: file_path = os.path.join(self.asset_dir, asset_filename)
-            # if os.path.exists(file_path): ...
-
-            # Simulated return for Demo Mode 0
             return {
                 "source": "local",
                 "path": os.path.join(self.asset_dir, asset_filename),
@@ -52,21 +37,55 @@ class AssetManager:
             }
 
         elif failure_mode == 1:
-            # Simulate Layer 2 Failure (File not found)
-            logger.warning("Layer 2 Failed: File not found (Simulated or Real)")
-            pass # Continue to Layer 3
-
-        elif failure_mode == 2:
-            # Bhuchal Mode - Force skip to Layer 3
+            logger.warning("Layer 2 Failed: File not found (Simulated)")
             pass
 
-        # --- LAYER 3: PROCEDURAL BACKUP ---
-        # Generates simple data structure
+        elif failure_mode == 2:
+            pass
+
+        # --- LAYER 3: PROCEDURAL BACKUP (VIDEO) ---
         return {
             "source": "procedural",
-            "type": "solid_color",
-            "color": "#000000", # Default black
-            "text": "SYSTEM FALLBACK: " + asset_description,
+            "type": "backup_generator::CRT_INTERFACE",
+            "color": "#000000",
+            "text": f"SYSTEM FALLBACK: {asset_description}",
+            "overlay": "animated binary text",
+            "layer_used": "Layer 3 (Procedural Backup)"
+        }
+
+    def get_music_asset(self, mood, failure_mode):
+        """
+        Retrieves a MUSIC asset based on cascading failure logic.
+        """
+        # --- LAYER 1: EXTERNAL API (FMA) ---
+        try:
+            raise ConnectionError("FMA API Connection Failed (Simulated)")
+        except Exception as e:
+            logger.warning(f"Layer 1 Failed: {e}")
+            pass
+
+        # --- LAYER 2: LOCAL ASSETS ---
+        if failure_mode == 0:
+            asset_filename = f"MUSIC_{mood.upper()}.mp3"
+            return {
+                "source": "local",
+                "path": os.path.join(self.asset_dir, asset_filename),
+                "type": "audio",
+                "layer_used": "Layer 2 (Local Asset)"
+            }
+
+        elif failure_mode == 1:
+            logger.warning("Layer 2 Failed: Music File not found")
+            pass
+
+        elif failure_mode == 2:
+            pass
+
+        # --- LAYER 3: PROCEDURAL BACKUP (MUSIC) ---
+        return {
+            "source": "procedural",
+            "type": "SINE_WAVE_DRONE",
+            "description": "Tension Soundscape: Code-generated, low-frequency Sine Wave Drone",
             "layer_used": "Layer 3 (Procedural Backup)"
         }
 
@@ -125,7 +144,7 @@ class JSONBuilder:
             # We use a keyword from the text as the asset description or ID
             # For simplicity, let's take the first noun-like word or just the first few words
             asset_desc = " ".join(text.split()[:3])
-            asset_data = self.asset_manager.get_asset(asset_desc, failure_mode)
+            asset_data = self.asset_manager.get_video_asset(asset_desc, failure_mode)
 
             # Apply Style specific procedural overrides if needed
             if asset_data["source"] == "procedural":
@@ -149,10 +168,15 @@ class JSONBuilder:
             }
             timeline.append(segment_data)
 
+        # Get Global Music
+        music_mood = "high_energy" if style_preset_name == "Dopamine_Spike" else "ambient"
+        global_audio = self.asset_manager.get_music_asset(music_mood, failure_mode)
+
         blueprint = {
             "project_name": "PVF_Demo_Project",
             "style_preset": style_preset_name,
             "total_duration": sum(s["duration"] for s in timeline),
+            "global_audio": global_audio,
             "timeline": timeline
         }
 
@@ -166,6 +190,14 @@ def renderer_stub(blueprint):
     logs = []
     logs.append(f"Starting Render Simulation for: {blueprint['project_name']}")
     logs.append(f"Style Preset: {blueprint['style_preset']}")
+
+    # Log Audio
+    audio = blueprint.get("global_audio", {})
+    logs.append(f"Global Audio Track: {audio.get('type', 'Unknown')}")
+    logs.append(f"  > Layer Used: {audio.get('layer_used', 'N/A')}")
+    if audio.get("source") == "procedural":
+        logs.append(f"  > Description: {audio.get('description', '')}")
+
     logs.append("-" * 40)
 
     for segment in blueprint["timeline"]:
