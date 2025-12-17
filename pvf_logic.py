@@ -15,7 +15,7 @@ class AssetManager:
     def __init__(self, asset_dir="assets"):
         self.asset_dir = asset_dir
 
-    def get_asset(self, asset_description, failure_mode):
+    def get_asset(self, asset_description, failure_mode, asset_type="video"):
         """
         Retrieves an asset based on cascading failure logic.
 
@@ -39,7 +39,10 @@ class AssetManager:
             # Simulate Success for Demo purposes even if file is missing
             # In a real scenario, this would check os.path.exists
             # For this demo, we pretend we found a file in 'assets' if mode is 0
-            asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
+
+            ext = ".mp3" if asset_type == "music" else ".mp4"
+            asset_filename = f"{asset_description.replace(' ', '_').upper()}{ext}"
+
             # real check: file_path = os.path.join(self.asset_dir, asset_filename)
             # if os.path.exists(file_path): ...
 
@@ -47,7 +50,7 @@ class AssetManager:
             return {
                 "source": "local",
                 "path": os.path.join(self.asset_dir, asset_filename),
-                "type": "video",
+                "type": asset_type,
                 "layer_used": "Layer 2 (Local Asset)"
             }
 
@@ -61,10 +64,17 @@ class AssetManager:
             pass
 
         # --- LAYER 3: PROCEDURAL BACKUP ---
+        if asset_type == "music":
+             return {
+                "source": "procedural",
+                "type": "sine_wave_drone",
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
+
         # Generates simple data structure
         return {
             "source": "procedural",
-            "type": "solid_color",
+            "type": "backup_generator::CRT_INTERFACE",
             "color": "#000000", # Default black
             "text": "SYSTEM FALLBACK: " + asset_description,
             "layer_used": "Layer 3 (Procedural Backup)"
@@ -113,6 +123,10 @@ class JSONBuilder:
         if not segments:
             segments = [script_text]
 
+        # Get Global Audio Asset
+        audio_desc = f"Background_Track_{style_preset_name}"
+        global_audio = self.asset_manager.get_asset(audio_desc, failure_mode, asset_type="music")
+
         timeline = []
 
         for idx, text in enumerate(segments):
@@ -153,6 +167,7 @@ class JSONBuilder:
             "project_name": "PVF_Demo_Project",
             "style_preset": style_preset_name,
             "total_duration": sum(s["duration"] for s in timeline),
+            "global_audio": global_audio,
             "timeline": timeline
         }
 
@@ -166,6 +181,13 @@ def renderer_stub(blueprint):
     logs = []
     logs.append(f"Starting Render Simulation for: {blueprint['project_name']}")
     logs.append(f"Style Preset: {blueprint['style_preset']}")
+
+    # Global Audio Log
+    audio = blueprint.get("global_audio")
+    if audio:
+        logs.append(f"Global Audio Track: {audio.get('type', 'Unknown')}")
+        logs.append(f"  > Source: {audio.get('source', 'Unknown')} | Layer Used: {audio.get('layer_used', 'Unknown')}")
+
     logs.append("-" * 40)
 
     for segment in blueprint["timeline"]:
