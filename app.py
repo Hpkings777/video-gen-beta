@@ -21,12 +21,18 @@ st.sidebar.header("Configuration")
 # Style Preset
 style_preset = st.sidebar.radio(
     "Style Preset",
-    ("Dopamine_Spike", "Cinematic_Stoic")
+    ("Dopamine_Spike", "Cinematic_Stoic"),
+    help="Controls visual pacing and aesthetics. 'Dopamine_Spike' is fast/neon; 'Cinematic_Stoic' is slow/minimal."
 )
 
 # Script Input
 default_script = "Coffee is life. Energy flows through the veins. The world wakes up."
-script_input = st.sidebar.text_area("Script Input", value=default_script, height=150)
+script_input = st.sidebar.text_area(
+    "Script Input",
+    value=default_script,
+    height=150,
+    help="Enter the text script for the video. Segments will be generated based on sentences."
+)
 
 # Failure Mode Switch
 st.sidebar.markdown("---")
@@ -37,7 +43,8 @@ failure_mode_label = st.sidebar.radio(
         "0. Normal Test (Layer 1 Fail -> Local Asset Success)",
         "1. Local Fallback Test (Layer 1 Fail -> Layer 2 Fail -> Procedural)",
         "2. Bhuchal Mode (Force Layer 3 Procedural)"
-    )
+    ),
+    help="Simulates resilience scenarios. 'Normal' uses local files. 'Bhuchal Mode' forces procedural generation."
 )
 
 # Map label to integer
@@ -70,7 +77,7 @@ if st.button("Generate Blueprint & Simulate Render"):
     with st.spinner("Simulating Renderer..."):
         render_logs = renderer_stub(blueprint)
 
-    st.text_area("Console Output", render_logs, height=400)
+    st.text_area("Console Output", render_logs, height=400, disabled=True)
 
     # Visual Feedback based on mode
     if failure_mode == 0:
