@@ -1,0 +1,3 @@
+## 2024-05-23 - Reducing Cognitive Load in Technical Demos
+**Learning:** In technical demos with heavy text output (like JSON blueprints), users can be overwhelmed by information density. Collapsing intermediate data structures (The Intent Layer) allows users to focus immediately on the final outcome (The Action Layer), while keeping the technical details accessible on demand.
+**Action:** Default to collapsing large technical payloads (JSON/XML) in expanders and highlight the primary call-to-action button to guide the user's journey through the simulation.
