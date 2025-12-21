@@ -15,7 +15,7 @@ class AssetManager:
     def __init__(self, asset_dir="assets"):
         self.asset_dir = asset_dir
 
-    def get_asset(self, asset_description, failure_mode):
+    def get_asset(self, asset_description, failure_mode, asset_type="video"):
         """
         Retrieves an asset based on cascading failure logic.
 
@@ -39,7 +39,8 @@ class AssetManager:
             # Simulate Success for Demo purposes even if file is missing
             # In a real scenario, this would check os.path.exists
             # For this demo, we pretend we found a file in 'assets' if mode is 0
-            asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
+            ext = ".mp4" if asset_type == "video" else ".mp3"
+            asset_filename = f"{asset_description.replace(' ', '_').upper()}{ext}"
             # real check: file_path = os.path.join(self.asset_dir, asset_filename)
             # if os.path.exists(file_path): ...
 
@@ -47,7 +48,7 @@ class AssetManager:
             return {
                 "source": "local",
                 "path": os.path.join(self.asset_dir, asset_filename),
-                "type": "video",
+                "type": asset_type,
                 "layer_used": "Layer 2 (Local Asset)"
             }
 
@@ -61,7 +62,15 @@ class AssetManager:
             pass
 
         # --- LAYER 3: PROCEDURAL BACKUP ---
-        # Generates simple data structure
+        if asset_type == "music":
+             return {
+                "source": "procedural",
+                "type": "sine_wave",
+                "description": "Tension Soundscape",
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
+
+        # Generates simple data structure (default video)
         return {
             "source": "procedural",
             "type": "solid_color",
@@ -149,10 +158,15 @@ class JSONBuilder:
             }
             timeline.append(segment_data)
 
+        # Get Global Audio
+        bg_track_name = f"Background_Track_{style_preset_name}"
+        global_audio = self.asset_manager.get_asset(bg_track_name, failure_mode, asset_type="music")
+
         blueprint = {
             "project_name": "PVF_Demo_Project",
             "style_preset": style_preset_name,
             "total_duration": sum(s["duration"] for s in timeline),
+            "global_audio": global_audio,
             "timeline": timeline
         }
 
@@ -166,6 +180,12 @@ def renderer_stub(blueprint):
     logs = []
     logs.append(f"Starting Render Simulation for: {blueprint['project_name']}")
     logs.append(f"Style Preset: {blueprint['style_preset']}")
+
+    if "global_audio" in blueprint:
+        audio = blueprint["global_audio"]
+        logs.append(f"Global Audio Track: {audio.get('description', audio.get('path', 'Unknown'))}")
+        logs.append(f"  > Layer Used: {audio['layer_used']}")
+
     logs.append("-" * 40)
 
     for segment in blueprint["timeline"]:
