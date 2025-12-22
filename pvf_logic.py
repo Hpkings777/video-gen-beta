@@ -15,9 +15,11 @@ class AssetManager:
     def __init__(self, asset_dir="assets"):
         self.asset_dir = asset_dir
 
-    def get_asset(self, asset_description, failure_mode):
+    def get_asset(self, asset_description, failure_mode, asset_type="video"):
         """
         Retrieves an asset based on cascading failure logic.
+
+        asset_type: "video" or "music"
 
         failure_mode maps to:
         0: Normal Test (Layer 1 Fail -> Layer 2 Success simulation)
@@ -39,7 +41,15 @@ class AssetManager:
             # Simulate Success for Demo purposes even if file is missing
             # In a real scenario, this would check os.path.exists
             # For this demo, we pretend we found a file in 'assets' if mode is 0
-            asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
+
+            if asset_type == "video":
+                ext = ".mp4"
+            elif asset_type == "music":
+                ext = ".mp3"
+            else:
+                ext = ".dat"
+
+            asset_filename = f"{asset_description.replace(' ', '_').upper()}{ext}"
             # real check: file_path = os.path.join(self.asset_dir, asset_filename)
             # if os.path.exists(file_path): ...
 
@@ -47,7 +57,7 @@ class AssetManager:
             return {
                 "source": "local",
                 "path": os.path.join(self.asset_dir, asset_filename),
-                "type": "video",
+                "type": asset_type,
                 "layer_used": "Layer 2 (Local Asset)"
             }
 
@@ -62,13 +72,30 @@ class AssetManager:
 
         # --- LAYER 3: PROCEDURAL BACKUP ---
         # Generates simple data structure
-        return {
-            "source": "procedural",
-            "type": "solid_color",
-            "color": "#000000", # Default black
-            "text": "SYSTEM FALLBACK: " + asset_description,
-            "layer_used": "Layer 3 (Procedural Backup)"
-        }
+        if asset_type == "video":
+            return {
+                "source": "procedural",
+                "type": "solid_color",
+                "color": "#000000", # Default black
+                "text": "SYSTEM FALLBACK: " + asset_description,
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
+        elif asset_type == "music":
+            # Bhuchal Mode Audio: Tension Soundscape
+            return {
+                "source": "procedural",
+                "type": "sine_wave",
+                "frequency": "50Hz", # Low frequency drone
+                "waveform": "sine",
+                "description": "Tension Soundscape",
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
+        else:
+             return {
+                "source": "procedural",
+                "type": "unknown_fallback",
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
 
 class JSONBuilder:
     """
@@ -149,10 +176,16 @@ class JSONBuilder:
             }
             timeline.append(segment_data)
 
+        # Get Global Audio
+        # We need a music track for the whole video
+        audio_desc = f"Background_Track_{style_preset_name}"
+        global_audio = self.asset_manager.get_asset(audio_desc, failure_mode, asset_type="music")
+
         blueprint = {
             "project_name": "PVF_Demo_Project",
             "style_preset": style_preset_name,
             "total_duration": sum(s["duration"] for s in timeline),
+            "global_audio": global_audio,
             "timeline": timeline
         }
 
@@ -166,6 +199,18 @@ def renderer_stub(blueprint):
     logs = []
     logs.append(f"Starting Render Simulation for: {blueprint['project_name']}")
     logs.append(f"Style Preset: {blueprint['style_preset']}")
+
+    # Log Global Audio
+    audio = blueprint.get("global_audio")
+    if audio:
+        if audio["source"] == "local":
+            audio_info = f"Local File: {audio['path']}"
+        else:
+            audio_info = f"{audio.get('description', 'Procedural Audio')} ({audio['type']})"
+
+        logs.append(f"Global Audio Track: {audio_info}")
+        logs.append(f"  > Layer Used: {audio['layer_used']}")
+
     logs.append("-" * 40)
 
     for segment in blueprint["timeline"]:
