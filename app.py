@@ -1,22 +1,21 @@
 import streamlit as st
+import time
 import json
 from pvf_logic import JSONBuilder, renderer_stub
 
-# Page Config
+# --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="PVF: Unbreakable Engine Demo",
+    page_title="PVF Unbreakable Engine Demo",
+    page_icon="🛡️",
     layout="wide"
 )
 
-# Title
-st.title("PVF: Unbreakable Engine Demo (Zero-Cost Resilience)")
-st.markdown("""
-This application demonstrates the **Zero-Failure PVF Engine**.
-It showcases a cascading failure logic that prioritizes local assets and procedural generation over external dependencies.
-""")
-
 # --- SIDEBAR ---
-st.sidebar.header("Configuration")
+st.sidebar.title("🛡️ PVF Control Center")
+st.sidebar.markdown("**Project: Bolt (Resilience Layer)**")
+
+# Defaults
+default_script = "The hero stands on the edge of the world. The wind howls through the silence. A decision is made."
 
 # Style Preset
 style_preset = st.sidebar.radio(
@@ -25,14 +24,16 @@ style_preset = st.sidebar.radio(
 )
 
 # Script Input
-default_script = "Coffee is life. Energy flows through the veins. The world wakes up."
-script_input = st.sidebar.text_area("Script Input", value=default_script, height=150)
+script_input = st.sidebar.text_area(
+    "Script Input",
+    value=default_script,
+    height=150,
+    help="Enter the script text. The engine segments scenes based on periods."
+)
 
 # Failure Mode Switch
-st.sidebar.markdown("---")
-st.sidebar.subheader("FAILURE MODE SWITCH (CRITICAL)")
-failure_mode_label = st.sidebar.radio(
-    "Select Simulation Mode:",
+failure_mode_option = st.sidebar.selectbox(
+    "System Failure Simulation",
     (
         "0. Normal Test (Layer 1 Fail -> Local Asset Success)",
         "1. Local Fallback Test (Layer 1 Fail -> Layer 2 Fail -> Procedural)",
@@ -40,29 +41,33 @@ failure_mode_label = st.sidebar.radio(
     )
 )
 
-# Map label to integer
-failure_mode_map = {
-    "0. Normal Test (Layer 1 Fail -> Local Asset Success)": 0,
-    "1. Local Fallback Test (Layer 1 Fail -> Layer 2 Fail -> Procedural)": 1,
-    "2. Bhuchal Mode (Force Layer 3 Procedural)": 2
-}
-failure_mode = failure_mode_map[failure_mode_label]
+# Extract the integer mode from the string
+failure_mode = int(failure_mode_option.split(".")[0])
 
+st.sidebar.markdown("---")
+st.sidebar.info(
+    "**Core Philosophy: Never Nothing.**\n"
+    "Even if all external APIs and local files fail, "
+    "the engine MUST produce a video."
+)
 
 # --- MAIN AREA ---
 
-if st.button("Generate Blueprint & Simulate Render"):
+st.title("🛡️ PVF Unbreakable Engine")
+st.markdown("### The 'Never Nothing' Rendering Pipeline")
+
+if st.button("Generate Blueprint & Simulate Render", type="primary", use_container_width=True):
 
     # 1. Initialize Logic
     builder = JSONBuilder()
 
     # 2. Build Blueprint
-    with st.spinner("Generating Unbreakable Blueprint..."):
+    with st.spinner("Analyzing Script & Assembling Blueprint..."):
         blueprint = builder.build_blueprint(script_input, style_preset, failure_mode)
 
     # 3. Display Blueprint
-    st.subheader("JSON Blueprint (The Intent Layer)")
-    st.code(json.dumps(blueprint, indent=4), language="json")
+    with st.expander("View JSON Blueprint (The Intent Layer)", expanded=False):
+        st.code(json.dumps(blueprint, indent=4), language="json")
 
     # 4. Run Render Simulation
     st.subheader("Render Simulation Log (The Action Layer)")
@@ -74,11 +79,8 @@ if st.button("Generate Blueprint & Simulate Render"):
 
     # Visual Feedback based on mode
     if failure_mode == 0:
-        st.success("Simulation Complete: Local Assets Successfully Utilized.")
+        st.success("✅ Render Complete (Normal Operation)")
     elif failure_mode == 1:
-        st.warning("Simulation Complete: System fell back to Procedural Assets due to missing local files.")
+        st.warning("⚠️ Render Complete (Local Fallback Active)")
     else:
-        st.error("Simulation Complete: BHUCHAL MODE - Maximum Resilience Active.")
-
-else:
-    st.info("Configure settings in the sidebar and click 'Generate' to start.")
+        st.error("🛡️ Render Complete (Bhuchal Mode: Maximum Resilience Active)")
