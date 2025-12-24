@@ -15,9 +15,11 @@ class AssetManager:
     def __init__(self, asset_dir="assets"):
         self.asset_dir = asset_dir
 
-    def get_asset(self, asset_description, failure_mode):
+    def get_asset(self, asset_description, failure_mode, asset_type="video"):
         """
         Retrieves an asset based on cascading failure logic.
+
+        asset_type: "video" (default), "music", "voiceover"
 
         failure_mode maps to:
         0: Normal Test (Layer 1 Fail -> Layer 2 Success simulation)
@@ -39,7 +41,13 @@ class AssetManager:
             # Simulate Success for Demo purposes even if file is missing
             # In a real scenario, this would check os.path.exists
             # For this demo, we pretend we found a file in 'assets' if mode is 0
-            asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
+
+            ext = ".mp4"
+            if asset_type == "music" or asset_type == "voiceover":
+                ext = ".mp3"
+
+            asset_filename = f"{asset_description.replace(' ', '_').upper()}{ext}"
+
             # real check: file_path = os.path.join(self.asset_dir, asset_filename)
             # if os.path.exists(file_path): ...
 
@@ -47,7 +55,7 @@ class AssetManager:
             return {
                 "source": "local",
                 "path": os.path.join(self.asset_dir, asset_filename),
-                "type": "video",
+                "type": asset_type,
                 "layer_used": "Layer 2 (Local Asset)"
             }
 
@@ -61,14 +69,36 @@ class AssetManager:
             pass
 
         # --- LAYER 3: PROCEDURAL BACKUP ---
-        # Generates simple data structure
-        return {
-            "source": "procedural",
-            "type": "solid_color",
-            "color": "#000000", # Default black
-            "text": "SYSTEM FALLBACK: " + asset_description,
-            "layer_used": "Layer 3 (Procedural Backup)"
-        }
+        # Generates simple data structure based on asset type
+
+        if asset_type == "music":
+             # Layer 3: Tension Soundscape (Sine Wave Drone)
+             return {
+                "source": "procedural",
+                "type": "sine_wave",
+                "freq": 150, # Low frequency drone
+                "desc": "Tension Soundscape",
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
+
+        elif asset_type == "voiceover":
+             # Layer 3: Robotic Speech (Placeholder for future TTS implementation)
+             return {
+                "source": "procedural",
+                "type": "robotic_speech",
+                "desc": "Robotic Speech",
+                "layer_used": "Layer 3 (Procedural Backup)"
+             }
+
+        else:
+            # Default to Video/Visual fallback
+            return {
+                "source": "procedural",
+                "type": "solid_color",
+                "color": "#000000", # Default black
+                "text": "SYSTEM FALLBACK: " + asset_description,
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
 
 class JSONBuilder:
     """
@@ -115,6 +145,11 @@ class JSONBuilder:
 
         timeline = []
 
+        # -- GLOBAL AUDIO RESOLUTION --
+        # New Resilience Feature: Resolve Music Track
+        music_desc = f"Background_Track_{style_preset_name}"
+        music_asset = self.asset_manager.get_asset(music_desc, failure_mode, asset_type="music")
+
         for idx, text in enumerate(segments):
             # Determine duration based on style
             # Simple logic: shorter text -> shorter duration, but clamped by style limits
@@ -125,7 +160,7 @@ class JSONBuilder:
             # We use a keyword from the text as the asset description or ID
             # For simplicity, let's take the first noun-like word or just the first few words
             asset_desc = " ".join(text.split()[:3])
-            asset_data = self.asset_manager.get_asset(asset_desc, failure_mode)
+            asset_data = self.asset_manager.get_asset(asset_desc, failure_mode, asset_type="video")
 
             # Apply Style specific procedural overrides if needed
             if asset_data["source"] == "procedural":
@@ -152,6 +187,7 @@ class JSONBuilder:
         blueprint = {
             "project_name": "PVF_Demo_Project",
             "style_preset": style_preset_name,
+            "global_audio": music_asset,
             "total_duration": sum(s["duration"] for s in timeline),
             "timeline": timeline
         }
@@ -166,6 +202,18 @@ def renderer_stub(blueprint):
     logs = []
     logs.append(f"Starting Render Simulation for: {blueprint['project_name']}")
     logs.append(f"Style Preset: {blueprint['style_preset']}")
+
+    # Log Global Audio
+    audio = blueprint.get("global_audio")
+    if audio:
+        if audio["source"] == "local":
+             logs.append(f"Global Audio Track: {audio['path']}")
+        else:
+             extra_info = f" ({audio.get('freq')}Hz Sine)" if audio.get('freq') else ""
+             logs.append(f"Global Audio Track: {audio['desc']}{extra_info}")
+
+        logs.append(f"  > Layer Used: {audio['layer_used']}")
+
     logs.append("-" * 40)
 
     for segment in blueprint["timeline"]:
