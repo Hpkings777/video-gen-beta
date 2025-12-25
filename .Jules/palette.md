@@ -1,0 +1,1 @@
+## 2024-05-23 - Initial Palette Setup\n**Learning:** This repo didn't have a palette file, so I created one to track UX learnings.\n**Action:** Always check for .Jules directory and create if missing.
