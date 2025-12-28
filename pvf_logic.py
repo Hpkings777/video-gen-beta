@@ -15,7 +15,7 @@ class AssetManager:
     def __init__(self, asset_dir="assets"):
         self.asset_dir = asset_dir
 
-    def get_asset(self, asset_description, failure_mode):
+    def get_asset(self, asset_description, failure_mode, asset_type="video"):
         """
         Retrieves an asset based on cascading failure logic.
 
@@ -36,18 +36,27 @@ class AssetManager:
 
         # --- LAYER 2: LOCAL ASSETS ---
         if failure_mode == 0:
+            # Determine filename based on type
+            if asset_type == "video":
+                asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
+            elif asset_type == "music":
+                asset_filename = f"Music_Track_{asset_description.replace(' ', '_')}.mp3"
+            elif asset_type == "voiceover":
+                asset_filename = f"VO_{asset_description.replace(' ', '_')}.mp3"
+            else:
+                asset_filename = f"{asset_description}.dat"
+
             # Simulate Success for Demo purposes even if file is missing
             # In a real scenario, this would check os.path.exists
             # For this demo, we pretend we found a file in 'assets' if mode is 0
-            asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
             # real check: file_path = os.path.join(self.asset_dir, asset_filename)
             # if os.path.exists(file_path): ...
 
-            # Simulated return for Demo Mode 0
             return {
                 "source": "local",
                 "path": os.path.join(self.asset_dir, asset_filename),
-                "type": "video",
+                "type": asset_type,
+                "desc": asset_description,
                 "layer_used": "Layer 2 (Local Asset)"
             }
 
@@ -61,6 +70,33 @@ class AssetManager:
             pass
 
         # --- LAYER 3: PROCEDURAL BACKUP ---
+        if asset_type == "video":
+            return {
+                "source": "procedural",
+                "type": "video_generator",
+                "name": "backup_generator::CRT_INTERFACE",
+                "color": "#FF00FF", # Magenta glitch default
+                "text": "SYSTEM FALLBACK: " + asset_description,
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
+        elif asset_type == "music":
+            return {
+                "source": "procedural",
+                "type": "audio_generator",
+                "name": "Tension Soundscape",
+                "desc": "60Hz Sine Wave",
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
+        elif asset_type == "voiceover":
+            return {
+                "source": "procedural",
+                "type": "tts_generator",
+                "name": "Robotic Speech",
+                "engine": "espeak",
+                "text": asset_description,
+                "layer_used": "Layer 3 (Procedural Backup)"
+            }
+
         # Generates simple data structure
         return {
             "source": "procedural",
@@ -125,11 +161,22 @@ class JSONBuilder:
             # We use a keyword from the text as the asset description or ID
             # For simplicity, let's take the first noun-like word or just the first few words
             asset_desc = " ".join(text.split()[:3])
-            asset_data = self.asset_manager.get_asset(asset_desc, failure_mode)
+            asset_data = self.asset_manager.get_asset(asset_desc, failure_mode, asset_type="video")
+
+            # Get Voiceover
+            # Use the text segment as the description for TTS
+            voiceover_data = self.asset_manager.get_asset(text[:20], failure_mode, asset_type="voiceover")
 
             # Apply Style specific procedural overrides if needed
             if asset_data["source"] == "procedural":
-                if style_preset_name == "Dopamine_Spike":
+                # Only apply override if it's a video generator (not generic) or we handle it here
+                # The prompt said "video_generator" is used now.
+                if asset_data.get("type") == "video_generator":
+                     if style_preset_name == "Dopamine_Spike":
+                         # We might want to keep the Magenta from AssetManager or override it
+                         # AssetManager sets #FF00FF by default for CRT_INTERFACE.
+                         pass
+                elif style_preset_name == "Dopamine_Spike":
                     asset_data["color"] = "#FF00FF" # Neon Pink for fallback in dopamine
                 else:
                     asset_data["color"] = "#222222" # Dark Grey for fallback in stoic
@@ -139,6 +186,7 @@ class JSONBuilder:
                 "text_content": text,
                 "duration": round(duration, 2),
                 "visual_asset": asset_data,
+                "audio_asset": voiceover_data,
                 "style_config": {
                     "font": style["font"],
                     "font_size": style["font_size"],
@@ -149,9 +197,13 @@ class JSONBuilder:
             }
             timeline.append(segment_data)
 
+        # Get Global Music
+        music_data = self.asset_manager.get_asset(style_preset_name, failure_mode, asset_type="music")
+
         blueprint = {
             "project_name": "PVF_Demo_Project",
             "style_preset": style_preset_name,
+            "global_audio": music_data,
             "total_duration": sum(s["duration"] for s in timeline),
             "timeline": timeline
         }
@@ -166,20 +218,44 @@ def renderer_stub(blueprint):
     logs = []
     logs.append(f"Starting Render Simulation for: {blueprint['project_name']}")
     logs.append(f"Style Preset: {blueprint['style_preset']}")
+
+    # Log Global Audio
+    global_audio = blueprint.get("global_audio")
+    if global_audio:
+        logs.append(f"Global Audio Track: {global_audio.get('desc', 'Unknown')}")
+        if global_audio["source"] == "local":
+             logs.append(f"  > Source: {global_audio['path']}")
+        else:
+             logs.append(f"  > Details: {global_audio.get('name', 'Procedural')}")
+        logs.append(f"  > Layer Used: {global_audio['layer_used']}")
+
     logs.append("-" * 40)
 
     for segment in blueprint["timeline"]:
         asset = segment["visual_asset"]
+        audio = segment.get("audio_asset")
         logs.append(f"[Segment {segment['id']}] Duration: {segment['duration']}s")
-        logs.append(f"  > Requesting Asset: '{asset.get('path', 'PROCEDURAL')}'")
+
+        # Visual
+        logs.append(f"  > [VIDEO] Requesting Asset: '{asset.get('path', 'PROCEDURAL')}'")
         logs.append(f"  > Layer Used: {asset['layer_used']}")
 
         if asset["source"] == "local":
             action = f"Rendering {segment['duration']}s of Local File: {asset['path']}"
         else:
-            action = f"Rendering {segment['duration']}s of Procedural {asset['type']} (Color: {asset['color']})"
-
+            # Safely get color, defaulting if missing (e.g. for some procedural types if keys differ)
+            color = asset.get('color', 'N/A')
+            desc = asset.get('name', asset['type'])
+            action = f"Rendering {segment['duration']}s of Procedural {desc} (Color: {color})"
         logs.append(f"  > Action: {action}")
+
+        # Audio (Voiceover)
+        if audio:
+             logs.append(f"  > [AUDIO] Voiceover: {audio.get('text', 'Unknown')}")
+             logs.append(f"  > Layer Used: {audio['layer_used']}")
+             if audio["source"] == "procedural":
+                 logs.append(f"  > Details: {audio.get('name', 'Procedural')} ({audio.get('engine', 'unknown')})")
+
         logs.append(f"  > Applied Effect: {segment['style_config']['effect']}")
         logs.append("-" * 20)
 
