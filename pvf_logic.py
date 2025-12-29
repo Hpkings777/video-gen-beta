@@ -36,24 +36,24 @@ class AssetManager:
 
         # --- LAYER 2: LOCAL ASSETS ---
         if failure_mode == 0:
-            # Simulate Success for Demo purposes even if file is missing
-            # In a real scenario, this would check os.path.exists
-            # For this demo, we pretend we found a file in 'assets' if mode is 0
             asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
-            # real check: file_path = os.path.join(self.asset_dir, asset_filename)
-            # if os.path.exists(file_path): ...
+            file_path = os.path.join(self.asset_dir, asset_filename)
 
-            # Simulated return for Demo Mode 0
-            return {
-                "source": "local",
-                "path": os.path.join(self.asset_dir, asset_filename),
-                "type": "video",
-                "layer_used": "Layer 2 (Local Asset)"
-            }
+            # Real file existence check
+            if os.path.exists(file_path):
+                return {
+                    "source": "local",
+                    "path": file_path,
+                    "type": "video",
+                    "layer_used": "Layer 2 (Local Asset)"
+                }
+            else:
+                logger.warning(f"Layer 2 Failed: File {file_path} not found")
+                # Fall through to Layer 3
 
         elif failure_mode == 1:
             # Simulate Layer 2 Failure (File not found)
-            logger.warning("Layer 2 Failed: File not found (Simulated or Real)")
+            logger.warning("Layer 2 Failed: Forced Failure (Simulated)")
             pass # Continue to Layer 3
 
         elif failure_mode == 2:
@@ -64,9 +64,10 @@ class AssetManager:
         # Generates simple data structure
         return {
             "source": "procedural",
-            "type": "solid_color",
+            "type": "backup_generator::CRT_INTERFACE",
             "color": "#000000", # Default black
             "text": "SYSTEM FALLBACK: " + asset_description,
+            "details": "Animated binary text overlay",
             "layer_used": "Layer 3 (Procedural Backup)"
         }
 
