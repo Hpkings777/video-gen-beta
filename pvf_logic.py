@@ -15,9 +15,11 @@ class AssetManager:
     def __init__(self, asset_dir="assets"):
         self.asset_dir = asset_dir
 
-    def get_asset(self, asset_description, failure_mode):
+    def get_asset(self, asset_description, failure_mode, asset_type="video"):
         """
         Retrieves an asset based on cascading failure logic.
+
+        asset_type: 'video', 'music', 'voiceover'
 
         failure_mode maps to:
         0: Normal Test (Layer 1 Fail -> Layer 2 Success simulation)
@@ -39,7 +41,11 @@ class AssetManager:
             # Simulate Success for Demo purposes even if file is missing
             # In a real scenario, this would check os.path.exists
             # For this demo, we pretend we found a file in 'assets' if mode is 0
-            asset_filename = f"{asset_description.replace(' ', '_').upper()}.mp4"
+
+            ext_map = {"video": ".mp4", "music": ".mp3", "voiceover": ".mp3"}
+            ext = ext_map.get(asset_type, ".dat")
+            asset_filename = f"{asset_description.replace(' ', '_').upper()}{ext}"
+
             # real check: file_path = os.path.join(self.asset_dir, asset_filename)
             # if os.path.exists(file_path): ...
 
@@ -47,8 +53,9 @@ class AssetManager:
             return {
                 "source": "local",
                 "path": os.path.join(self.asset_dir, asset_filename),
-                "type": "video",
-                "layer_used": "Layer 2 (Local Asset)"
+                "type": asset_type,
+                "layer_used": "Layer 2 (Local Asset)",
+                "desc": asset_description
             }
 
         elif failure_mode == 1:
@@ -61,14 +68,41 @@ class AssetManager:
             pass
 
         # --- LAYER 3: PROCEDURAL BACKUP ---
-        # Generates simple data structure
-        return {
+        # Generates specific procedural identifiers based on asset type
+
+        backup_data = {
             "source": "procedural",
-            "type": "solid_color",
-            "color": "#000000", # Default black
-            "text": "SYSTEM FALLBACK: " + asset_description,
-            "layer_used": "Layer 3 (Procedural Backup)"
+            "layer_used": "Layer 3 (Procedural Backup)",
+            "text": f"SYSTEM FALLBACK: {asset_description}"
         }
+
+        if asset_type == "video":
+            # Video Clips -> Glitch Screen
+            backup_data.update({
+                "type": "backup_generator::CRT_INTERFACE",
+                "details": "Animated binary text overlay",
+                "color": "#000000" # Default, may be overridden by style
+            })
+        elif asset_type == "music":
+            # Music Track -> Tension Sine Wave
+            backup_data.update({
+                "type": "backup_generator::SINE_WAVE",
+                "details": "Low-freq sine wave"
+            })
+        elif asset_type == "voiceover":
+            # Voiceover -> Robotic Speech
+            backup_data.update({
+                "type": "backup_generator::ROBOTIC_SPEECH",
+                "details": "Text-to-Speech fallback"
+            })
+        else:
+            # Generic fallback
+            backup_data.update({
+                "type": "solid_color",
+                "details": "Generic Backup"
+            })
+
+        return backup_data
 
 class JSONBuilder:
     """
@@ -125,10 +159,13 @@ class JSONBuilder:
             # We use a keyword from the text as the asset description or ID
             # For simplicity, let's take the first noun-like word or just the first few words
             asset_desc = " ".join(text.split()[:3])
-            asset_data = self.asset_manager.get_asset(asset_desc, failure_mode)
+            asset_data = self.asset_manager.get_asset(asset_desc, failure_mode, asset_type="video")
+
+            # Fetch voiceover for this segment (Added for resilience demonstration)
+            vo_data = self.asset_manager.get_asset(text[:20], failure_mode, asset_type="voiceover")
 
             # Apply Style specific procedural overrides if needed
-            if asset_data["source"] == "procedural":
+            if asset_data["source"] == "procedural" and "color" in asset_data:
                 if style_preset_name == "Dopamine_Spike":
                     asset_data["color"] = "#FF00FF" # Neon Pink for fallback in dopamine
                 else:
@@ -139,6 +176,7 @@ class JSONBuilder:
                 "text_content": text,
                 "duration": round(duration, 2),
                 "visual_asset": asset_data,
+                "audio_asset": vo_data,
                 "style_config": {
                     "font": style["font"],
                     "font_size": style["font_size"],
@@ -149,9 +187,13 @@ class JSONBuilder:
             }
             timeline.append(segment_data)
 
+        # Fetch Global Audio (Added for resilience demonstration)
+        global_audio = self.asset_manager.get_asset(style_preset_name, failure_mode, asset_type="music")
+
         blueprint = {
             "project_name": "PVF_Demo_Project",
             "style_preset": style_preset_name,
+            "global_audio": global_audio,
             "total_duration": sum(s["duration"] for s in timeline),
             "timeline": timeline
         }
@@ -166,10 +208,23 @@ def renderer_stub(blueprint):
     logs = []
     logs.append(f"Starting Render Simulation for: {blueprint['project_name']}")
     logs.append(f"Style Preset: {blueprint['style_preset']}")
+
+    # Global Audio Log
+    audio = blueprint.get("global_audio")
+    if audio:
+        logs.append(f"Global Audio Track: {audio.get('desc', 'Unknown')}")
+        logs.append(f"  > Source: {audio['source']}")
+        logs.append(f"  > Layer Used: {audio['layer_used']}")
+        if audio["source"] == "procedural":
+             logs.append(f"  > Type: {audio['type']}")
+             logs.append(f"  > Details: {audio['details']}")
+
     logs.append("-" * 40)
 
     for segment in blueprint["timeline"]:
         asset = segment["visual_asset"]
+        vo = segment.get("audio_asset")
+
         logs.append(f"[Segment {segment['id']}] Duration: {segment['duration']}s")
         logs.append(f"  > Requesting Asset: '{asset.get('path', 'PROCEDURAL')}'")
         logs.append(f"  > Layer Used: {asset['layer_used']}")
@@ -177,9 +232,22 @@ def renderer_stub(blueprint):
         if asset["source"] == "local":
             action = f"Rendering {segment['duration']}s of Local File: {asset['path']}"
         else:
-            action = f"Rendering {segment['duration']}s of Procedural {asset['type']} (Color: {asset['color']})"
+            # Procedural Video
+            action = f"Rendering {segment['duration']}s of Procedural {asset['type']} ({asset.get('details', '')})"
+            if "color" in asset:
+                action += f" (Color: {asset['color']})"
 
         logs.append(f"  > Action: {action}")
+
+        # Log Voiceover
+        if vo:
+            logs.append(f"  > [AUDIO] Voiceover: {vo.get('desc', 'Segment Text')}")
+            if vo["source"] == "procedural":
+                logs.append(f"    - Type: {vo['type']}")
+                logs.append(f"    - Details: {vo['details']}")
+            else:
+                logs.append(f"    - File: {vo.get('path')}")
+
         logs.append(f"  > Applied Effect: {segment['style_config']['effect']}")
         logs.append("-" * 20)
 
